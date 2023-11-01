@@ -53,8 +53,6 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 	let fen_parts: Vec<&str> = fen_string.split(" ").collect();
 	let mut return_tuple: (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32) = (Vec::new(), PieceColour::None, (false, false, false, false), -1); // board, colours turn, en passant move, castling rights
 
-	println!("{:?}", fen_parts);
-
 	// -- PIECE PLACEMENT -- 
 
 	let ranks = fen_parts[0].split("/"); // first part of the fen string (piece placement)
@@ -817,7 +815,7 @@ fn algebraic_notation_input(message: &str, can_quit: bool) -> i32{ // returns in
 
 
 fn main() {
-	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen("2k5/ppp3p1/8/4p1P1/2P3p1/P7/KP6/6b1 w - -"); // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR = default r1bk3r/p2p1pNp/n4n2/1p1NP2P/6P1/3P4/P1P1K3/q5b1 = testing
+	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - "); // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - = default
 
 	let piece_art = load_board_art("res/Piece_Art.txt"); // load art from file
 
@@ -835,8 +833,6 @@ fn main() {
 	}
 
 	loop{
-		println!("{:?}", castling_rights);
-		println!("{:?}", en_passant_move);
 		if check_for_checkmate(&mut board, en_passant_move, king_indexs, colours_turn, castling_rights){
 			print_board(&board, &Vec::new(), &piece_art);	
 			match colours_turn{
