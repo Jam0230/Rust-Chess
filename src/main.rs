@@ -47,9 +47,9 @@ struct Move{
 	flag: MoveFlag
 }
 
-// ------- BOARD PRINTING -------
+// ------- 	FEN STUFF -------
 
-fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32){ 
+fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32){ // returns board state given by a fen string
 	let fen_parts: Vec<&str> = fen_string.split(" ").collect();
 	let mut return_tuple: (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32) = (Vec::new(), PieceColour::None, (false, false, false, false), -1); // board, colours turn, en passant move, castling rights
 
@@ -153,7 +153,7 @@ fn load_board_art(file_path: &str) -> Vec<[String;9]>{ // loads art used when pr
 	let mut piece_arts: Vec<[String;9]> = Vec::new();
 
 	let mut n = 0;
-	let mut piece_art: [String;9] = ["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()]; // Ignore this :3
+	let mut piece_art: [String;9] = Default::default(); // initialises the piece art array (9 * "".to_string())
 	for line in split_contents{
 		if n == 8{
 			piece_art[n] = line.to_string(); // add last line to piece art
@@ -168,8 +168,160 @@ fn load_board_art(file_path: &str) -> Vec<[String;9]>{ // loads art used when pr
 	piece_arts
 }
 
+fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_rights: (bool,bool,bool,bool), en_passant_move: i32) -> String{ // returns fen string of current boardkkkkll
+	let mut fen_string = String::new();
+
+	// -- BOARD LAYOUT --
+
+	let mut board_layout_str = String::new();
+
+	let mut empty_flag = false;
+	let mut num_empty = 0;
+
+	for rank in 0..8{
+		for file in 0..8{
+			let piece = board[file+rank*8];
+
+			if empty_flag == true && piece.piece_type != PieceType::None{
+				board_layout_str.push_str(&num_empty.to_string());
+				empty_flag = false;
+				num_empty = 0;
+			}
+
+			match piece.piece_type{
+				PieceType::Pawn => { // pawn
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("P"), // white
+						PieceColour::Black => board_layout_str.push_str("p"), // black
+						_ => ()
+					}
+				},
+				PieceType::Rook => { // rook
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("R"), // white
+						PieceColour::Black => board_layout_str.push_str("r"), // black
+						_ => ()						
+					}
+				},
+				PieceType::Knight => { // knight
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("N"), // white
+						PieceColour::Black => board_layout_str.push_str("n"), // black
+						_ => ()						
+					}
+				},
+				PieceType::Bishop => { // bishop
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("B"), // white
+						PieceColour::Black => board_layout_str.push_str("b"), // black
+						_ => ()						
+					}
+				},
+				PieceType::Queen => { // queen
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("Q"), // white
+						PieceColour::Black => board_layout_str.push_str("q"), // black
+						_ => ()						
+					}
+				},
+				PieceType::King => { // king
+					match piece.piece_colour{
+						PieceColour::White => board_layout_str.push_str("K"), // white
+						PieceColour::Black => board_layout_str.push_str("k"), // black
+						_ => ()						
+					}
+				},
+				PieceType::None => { // empty square
+					empty_flag = true;
+					num_empty += 1;
+				}
+			}
+		}
+
+		if num_empty != 0{ // adding empty count if whole rank is empty
+			board_layout_str.push_str(&num_empty.to_string());
+			num_empty = 0;
+			empty_flag = false;
+		}
+
+		if rank != 7 { // adding rank seperators
+			board_layout_str.push_str("/")
+		}
+	}
+
+	fen_string.push_str(&(board_layout_str+" "));
+
+
+	// -- COLOURS TURN -- 
+
+	match colours_turn {
+		PieceColour::White => fen_string.push_str("w "),
+		PieceColour::Black => fen_string.push_str("b "),
+		_ => (),
+	}
+
+	// -- CASTLING RIGHTS -- 
+
+	let mut castling_rights_string = String::new();
+
+	if castling_rights.0 == true{
+		castling_rights_string.push_str("K"); // white king side
+	}
+	if castling_rights.1 == true{
+		castling_rights_string.push_str("Q"); // white queen side
+	}
+	if castling_rights.2 == true{
+		castling_rights_string.push_str("k"); // black king side
+	}
+	if castling_rights.3 == true{
+		castling_rights_string.push_str("q"); // black queen side
+	}
+
+	if castling_rights_string.len() == 0{ // if no castling is available
+		castling_rights_string.push_str("- ");
+	}
+	else{
+		castling_rights_string.push_str(" ");
+	}
+
+	fen_string.push_str(&castling_rights_string);
+
+	// -- EN PASSANT MOVE --
+
+	if en_passant_move == -1{
+		fen_string.push_str("- ");
+	}
+	else{
+
+		let letter_part = match en_passant_move%8{
+			0 => "a",
+			1 => "b",
+			2 => "c",
+			3 => "d",
+			4 => "e",
+			5 => "f",
+			6 => "g",
+			7 => "h",
+			_ => "-",
+		};
+
+		let number_part = (8-(en_passant_move/8)).to_string();
+
+		let algebraic_notation_input = format!("{}{} ", letter_part, number_part);
+
+		fen_string.push_str(&algebraic_notation_input);
+
+	}
+
+	println!("{}", fen_string);
+
+	fen_string
+}
+
+// ------- BOARD PRINTING -------
+
 fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[String;9]>){ // prints the board fancily
-	let mut lines: Vec<String> = vec!["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()];
+	let mut lines: Vec<String> = vec![String::new(); 9];
 
 	for rank in 0..=8{
 		let mut art_index: i32;
@@ -212,6 +364,7 @@ fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[Str
 
 					lines[i] = format!("{}{}", lines[i], line);
 				}
+
 			}else{ // actual pieces
 				let index = file+rank*8;
 
@@ -259,7 +412,7 @@ fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[Str
 		for line in lines{
 			println!("{}", line); // Output lines
 		}
-		lines = vec!["".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string(), "".to_string()];
+		lines = vec![String::new(); 9];
 	}
 }
 
@@ -395,7 +548,7 @@ fn sudo_legal_move_gen(board: &Vec<Piece>, index: i32, en_passant_move: i32, cas
 					}
 				}
 
-				if en_passant_move == index+side && board[(index+side) as usize].piece_colour != piece.piece_colour && index/8 == en_passant_rank{ // en passant
+				if en_passant_move == index+side+(8*dir) && board[(index+side) as usize].piece_colour != piece.piece_colour && index/8 == en_passant_rank{ // en passant
 					piece_moves.push(Move{ start: index, end: index+side+(8*dir), flag: MoveFlag::EnPassant})
 				}
 			}
@@ -491,7 +644,7 @@ fn side_move_gen(board: &Vec<Piece>, en_passant_move: i32, side_to_check: PieceC
 // ------- PIECE MOVEMENT -------
 
 fn selection_iteration(mut board: Vec<Piece>, mut colours_turn: PieceColour, en_passant_move: i32, piece_arts: &Vec<[String;9]>, king_indexs: (i32, i32), castling_rights: (bool,bool,bool,bool)) 
-	-> (Vec<Piece>, i32, PieceColour, (i32, i32), (bool,bool,bool,bool)){
+	-> (Vec<Piece>, i32, PieceColour, (i32, i32), (bool,bool,bool,bool)){ // the main input loop of the game
 	let mut piece_moves: Vec<Move>;
 	let mut selected_move: Move;
 
@@ -522,6 +675,7 @@ fn select_piece(board: &mut Vec<Piece>, colours_turn: PieceColour, en_passant_mo
 	let mut piece_moves: Vec<Move>;
 
 	loop{
+		println!("{:?}'s turn!", colours_turn);
 		index = algebraic_notation_input("Enter the piece you would like to select", false);
 
 		if board[index as usize].piece_colour == colours_turn{ // check if piece selected is current person piece
@@ -541,7 +695,7 @@ fn select_piece(board: &mut Vec<Piece>, colours_turn: PieceColour, en_passant_mo
 	piece_moves
 }
 
-fn select_move(piece_moves: &Vec<Move>) -> Move{
+fn select_move(piece_moves: &Vec<Move>) -> Move{ // returns selected move
 	loop{
 		let index = algebraic_notation_input("Enter the move you would like to make (enter 'quit' to return to piece selection)", true);
 
@@ -569,7 +723,7 @@ fn select_move(piece_moves: &Vec<Move>) -> Move{
 	}
 }
 
-fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut king_indexs: (i32, i32), mut castling_rights: (bool,bool,bool,bool)) -> (Vec<Piece>, i32, (i32, i32), (bool,bool,bool,bool)){
+fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut king_indexs: (i32, i32), mut castling_rights: (bool,bool,bool,bool)) -> (Vec<Piece>, i32, (i32, i32), (bool,bool,bool,bool)){ // returns new board state for move made
 	let start_piece = board[piece_move.start as usize];
 	let capture_piece = board[piece_move.end as usize];
 	let mut new_en_passant = -1;
@@ -585,11 +739,11 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 	// -- en passant stuff -- 
 
 	if piece_move.flag == MoveFlag::EnPassant{
-		board[en_passant_move as usize] = Piece{ piece_type: PieceType::None, piece_colour: PieceColour::None}; // remove piece that is taken by en passant
+		board[(en_passant_move-(8*pawn_dir)) as usize] = Piece{ piece_type: PieceType::None, piece_colour: PieceColour::None}; // remove piece that is taken by en passant
 	}
 
 	if start_piece.piece_type == PieceType::Pawn && piece_move.start/8 == pawn_start && piece_move.start+(16*pawn_dir) == piece_move.end{ // make this pos next en passant move if its a double pawn push
-		new_en_passant = piece_move.end;
+		new_en_passant = piece_move.end - (8*pawn_dir);
 	}
 
 	// -- promotion stuff --
@@ -733,7 +887,7 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 
 // ------- CHECK AND CHECKMATE -------
 
-fn check_for_checkmate(board: &mut Vec<Piece>, en_passant_move: i32, king_indexs: (i32, i32), colours_turn: PieceColour, castling_rights: (bool,bool,bool,bool)) -> bool{
+fn check_for_checkmate(board: &mut Vec<Piece>, en_passant_move: i32, king_indexs: (i32, i32), colours_turn: PieceColour, castling_rights: (bool,bool,bool,bool)) -> bool{ // returns true if in checkmate 
 	let mut legal_moves: Vec<Move> = Vec::new(); // all legal moves that the player can take
 
 
@@ -753,7 +907,7 @@ fn check_for_checkmate(board: &mut Vec<Piece>, en_passant_move: i32, king_indexs
 
 // ------- INPUT -------
 
-fn promotion_type_input(message: &str, can_quit: bool) -> MoveFlag{
+fn promotion_type_input(message: &str, can_quit: bool) -> MoveFlag{ // returns move flag for which type of promotion selected 
 	loop{
 		let mut input = String::new();
 		println!("\n{}: ", message); // print message that goes with input 
@@ -815,12 +969,12 @@ fn algebraic_notation_input(message: &str, can_quit: bool) -> i32{ // returns in
 
 
 fn main() {
-	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - "); // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - = default
+	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen("rnbqkbnr/p2ppppp/1P6/8/8/3p4/1PP1PPPP/RNBQKBNR w KQkq - "); // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -
 
 	let piece_art = load_board_art("res/Piece_Art.txt"); // load art from file
 
 	let mut king_indexs: (i32, i32) = (-1, -1); // indexs of the kings
-	for index in 0i32..64i32{
+	for index in 0i32..64i32{ // initialising the position of the kings
 		let piece = board[index as usize];
 
 		if piece.piece_type == PieceType::King{
@@ -832,7 +986,10 @@ fn main() {
 		}
 	}
 
+
 	loop{
+		encode_into_fen(&board, colours_turn, castling_rights, en_passant_move);
+
 		if check_for_checkmate(&mut board, en_passant_move, king_indexs, colours_turn, castling_rights){
 			print_board(&board, &Vec::new(), &piece_art);	
 			match colours_turn{
