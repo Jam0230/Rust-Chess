@@ -1,6 +1,4 @@
-use std::fs;
-use std::cmp;
-use std::io;
+use std::{process, io::Write, io, fs, cmp};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 enum PieceType{
@@ -32,6 +30,7 @@ enum MoveFlag{ // flags for special moves
 	Castling,
 	
 	Promotion, // general promotion flag
+	
 	// promotion flags added later when type of promotion is chosen 
 	RookPromo,
 	KnightPromo,
@@ -48,6 +47,25 @@ struct Move{
 }
 
 // ------- 	FEN STUFF -------
+
+fn input_fen() -> String{
+	let fen_string: String;
+
+	loop{
+		println!("Enter the fen string you would like to use: ");
+		let mut input = String::new();
+		io::stdin().read_line(&mut input).expect("\x1b[41;30m-- ERROR FAILED TO READ INPUT LINE --\x1b[0m");
+
+		println!("{}", input);
+
+		match decode_fen(&input.trim()).0.len(){
+			0 => println!("-- Not a valid fen string! --"),
+			_ => {fen_string = input; break;}
+		}
+	}
+
+	fen_string
+}
 
 fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32){ // returns board state given by a fen string
 	let fen_parts: Vec<&str> = fen_string.split(" ").collect();
@@ -124,6 +142,7 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 	let en_passant_target_algebraic = fen_parts[3];
 	let mut en_passant_target = -1;
 
+
 	if en_passant_target_algebraic != "-"{
 		let number_part = en_passant_target_algebraic.chars().nth(1).expect("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m").to_digit(10).unwrap();
 		let letter_part = en_passant_target_algebraic.chars().nth(0).expect("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m");
@@ -139,8 +158,9 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 			"h" => en_passant_target += 7,
 			_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); }
 		}
-		en_passant_target += (8-number_part as i32)*8;
+		en_passant_target += (8-number_part as i32)*8+1;
 	}
+	println!("{}", en_passant_target);
 
 	return_tuple.3 = en_passant_target;
 
@@ -312,8 +332,6 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 		fen_string.push_str(&algebraic_notation_input);
 
 	}
-
-	println!("{}", fen_string);
 
 	fen_string
 }
@@ -648,9 +666,22 @@ fn selection_iteration(mut board: Vec<Piece>, mut colours_turn: PieceColour, en_
 	let mut piece_moves: Vec<Move>;
 	let mut selected_move: Move;
 
-	loop{
+	'outer: loop{
 		print_board(&board, &Vec::new(), piece_arts); // print current positions
 		piece_moves = select_piece(&mut board, colours_turn, en_passant_move, king_indexs, castling_rights); // select piece
+
+		if piece_moves.len() == 0{
+			println!("\nFen String:\n'{}'\n", encode_into_fen(&board, colours_turn, castling_rights, en_passant_move));
+			loop {
+				let selection = menu_selection(vec!["Continue","Quit"]);
+
+				match selection{
+					1 => continue 'outer,
+					2 => process::exit(1),
+					_ => ()
+				}
+			}
+		}
 
 		print_board(&board, &piece_moves, piece_arts); // print piece moves
 		selected_move = select_move(&piece_moves); // select move
@@ -676,7 +707,11 @@ fn select_piece(board: &mut Vec<Piece>, colours_turn: PieceColour, en_passant_mo
 
 	loop{
 		println!("{:?}'s turn!", colours_turn);
-		index = algebraic_notation_input("Enter the piece you would like to select", false);
+		index = algebraic_notation_input("Enter the piece you would like to select, enter 'save' to get a fen string of the current board layout", false, true);
+
+		if index == -1{
+			return Vec::new();
+		}
 
 		if board[index as usize].piece_colour == colours_turn{ // check if piece selected is current person piece
 			piece_moves = legal_move_gen(board, index, en_passant_move, king_indexs, castling_rights); 
@@ -697,7 +732,7 @@ fn select_piece(board: &mut Vec<Piece>, colours_turn: PieceColour, en_passant_mo
 
 fn select_move(piece_moves: &Vec<Move>) -> Move{ // returns selected move
 	loop{
-		let index = algebraic_notation_input("Enter the move you would like to make (enter 'quit' to return to piece selection)", true);
+		let index = algebraic_notation_input("Enter the move you would like to make (enter 'quit' to return to piece selection)", true, false);
 
 		if index == -1{
 			return Move{ start: -1, end: -1, flag: MoveFlag::None}; // go back to piece input
@@ -718,7 +753,6 @@ fn select_move(piece_moves: &Vec<Move>) -> Move{ // returns selected move
 				return *piece_move
 			}
 		}
-
 		println!("-- Not a move this piece can make! --")
 	}
 }
@@ -927,7 +961,7 @@ fn promotion_type_input(message: &str, can_quit: bool) -> MoveFlag{ // returns m
 	}
 }
 
-fn algebraic_notation_input(message: &str, can_quit: bool) -> i32{ // returns input from algebraic notations
+fn algebraic_notation_input(message: &str, can_quit: bool, can_save: bool) -> i32{ // returns input from algebraic notations
 	let error_message = "\x1b[41m--FAILED TO READ INPUT LINE--\x1b[0m";
 
 	let mut index = 0;
@@ -937,6 +971,10 @@ fn algebraic_notation_input(message: &str, can_quit: bool) -> i32{ // returns in
 		io::stdin().read_line(&mut input).expect(error_message); // get input line from console
 
 		if can_quit && input == "quit\n"{ // go back to piece selection
+			return -1;
+		}
+
+		if can_save && input == "save\n"{
 			return -1;
 		}
 
@@ -967,9 +1005,51 @@ fn algebraic_notation_input(message: &str, can_quit: bool) -> i32{ // returns in
 	index
 }
 
+fn menu_selection(options: Vec<&str>) -> i32{ // returns the number of the selection made (used in a match case statement later :3)
+
+	let num_options = options.len() as i32;
+
+	loop {
+		for i in 0..num_options{
+			println!("{}) {}", i+1, options[i as usize]);
+		}
+
+		print!("\n:");
+		std::io::stdout().flush().unwrap();
+
+		let mut input: String = String::new();
+		io::stdin().read_line(&mut input).expect("\x1b[41;30m--FAILED TO READ INPUT LINE--\x1b[0m");
+
+		match input.trim().parse::<i32>(){
+			Ok(n) => { 
+				if n > 0 && n < num_options + 1{
+					return n;
+				}
+				else{
+					println!("-- Not a valid selection! --\n\n");
+				}
+			},
+			Err(_) => println!("-- Not a valid selection! --\n\n")
+		}
+	}
+}
+
 
 fn main() {
-	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen("rnbqkbnr/p2ppppp/1P6/8/8/3p4/1PP1PPPP/RNBQKBNR w KQkq - "); // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -
+	let mut fen_string = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");
+
+	loop {
+		let selection = menu_selection(vec!["Play", "Load Fen", "Quit"]);
+
+		match selection{
+			1 => break,
+			2 => fen_string = input_fen(),
+			3 => process::exit(1),
+			_ => ()
+		}
+	}
+
+	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen(&fen_string.trim());
 
 	let piece_art = load_board_art("res/Piece_Art.txt"); // load art from file
 
@@ -988,7 +1068,6 @@ fn main() {
 
 
 	loop{
-		encode_into_fen(&board, colours_turn, castling_rights, en_passant_move);
 
 		if check_for_checkmate(&mut board, en_passant_move, king_indexs, colours_turn, castling_rights){
 			print_board(&board, &Vec::new(), &piece_art);	
