@@ -1,7 +1,7 @@
 use std::{process, io::Write, io, fs, cmp};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum PieceType{
+enum PieceType{ // type of piece (None for empty space)
 	Pawn,
 	Rook,
 	Knight,
@@ -12,14 +12,14 @@ enum PieceType{
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum PieceColour{
+enum PieceColour{ // colour of piece (None for empty space)
 	White,
 	Black,
 	None
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Piece{
+struct Piece{ // chess piece
 	piece_type: PieceType,
 	piece_colour: PieceColour
 }
@@ -40,7 +40,7 @@ enum MoveFlag{ // flags for special moves
 }
 
 #[derive(Debug, Copy, Clone)]
-struct Move{
+struct Move{ 
 	start: i32,
 	end: i32,
 	flag: MoveFlag
@@ -58,7 +58,7 @@ fn input_fen() -> String{
 
 		println!("{}", input);
 
-		match decode_fen(&input.trim()).0.len(){
+		match decode_fen(&input.trim()).0.len(){ // if length of board layout is 0 fen string is invalid (see decode fen)
 			0 => println!("-- Not a valid fen string! --"),
 			_ => {fen_string = input; break;}
 		}
@@ -67,11 +67,11 @@ fn input_fen() -> String{
 	fen_string
 }
 
-fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32){ // returns board state given by a fen string
+fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32){ // returns board state given by a fen string if fen string is invalid board layout returned will be empty vector 
 	let fen_parts: Vec<&str> = fen_string.split(" ").collect();
 	let mut return_tuple: (Vec<Piece>, PieceColour, (bool,bool,bool,bool), i32) = (Vec::new(), PieceColour::None, (false, false, false, false), -1); // board, colours turn, en passant move, castling rights
 
-	// -- PIECE PLACEMENT -- 
+	// -- PIECE PLACEMENT -- (the board layout)
 
 	let ranks = fen_parts[0].split("/"); // first part of the fen string (piece placement)
 	let mut board: Vec<Piece> = Vec::new();
@@ -79,7 +79,7 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 	for rank in ranks{
 		for file in rank.chars(){
 			if file.is_numeric(){ // empty space
-				for _ in 0..file.to_digit(10).unwrap(){ // add multiple empty spaces to board
+				for _ in 0..file.to_digit(10).unwrap(){ // add empty spaces to board 
 					board.push(Piece{ piece_type: PieceType::None, piece_colour: PieceColour::None});
 				}
 			} else{ // piece
@@ -105,7 +105,7 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 			}
 		}
 	}
-	if board.len() == 64{
+	if board.len() == 64{ // checking length of board layout (if not 64 then fen string is invalid length)
 		return_tuple.0 = board;
 	}
 	else{
@@ -114,17 +114,17 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 	}
 
 
-	// -- COLOURS TURN --
+	// -- COLOURS TURN -- (which players turn it is)
 
 	match fen_parts[1]{
-		"w" => return_tuple.1 = PieceColour::White,
-		"b" => return_tuple.1 = PieceColour::Black,
-		_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); }
+		"w" => return_tuple.1 = PieceColour::White, // white = 'w'
+		"b" => return_tuple.1 = PieceColour::Black, // black = 'b'
+		_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); } // something went wrong 
 	}
 
-	// -- CASTLING RIGHTS --
+	// -- CASTLING RIGHTS -- (players rights to castle on each side )
 
-	let castling_rights_string = fen_parts[2];
+	let castling_rights_string = fen_parts[2]; 
 
 	for castling_char in castling_rights_string.chars(){
 		match castling_char{
@@ -132,22 +132,22 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 			'Q' => return_tuple.2.1 = true, // white queen side
 			'k' => return_tuple.2.2 = true, // black king side
 			'q' => return_tuple.2.3 = true, // black queen side
-			'-' => return_tuple.2 = (false,false,false,false),
+			'-' => return_tuple.2 = (false,false,false,false), // '-' = no castling possible
 			_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); }
 		}
 	}
 
-	// -- EN PASSANT TARGET -- 
+	// -- EN PASSANT TARGET -- (which square can be moved to by en passant)
 
-	let en_passant_target_algebraic = fen_parts[3];
-	let mut en_passant_target = -1;
+	let en_passant_target_algebraic = fen_parts[3]; // algebraic notaion of target square
+	let mut en_passant_target = -1; // index of target square 
 
 
 	if en_passant_target_algebraic != "-"{
 		let number_part = en_passant_target_algebraic.chars().nth(1).expect("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m").to_digit(10).unwrap();
 		let letter_part = en_passant_target_algebraic.chars().nth(0).expect("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m");
 
-		match letter_part.to_lowercase().to_string().as_str(){
+		match letter_part.to_lowercase().to_string().as_str(){ // changes letter part of algebraic notation into an int
 			"a" => en_passant_target += 0,
 			"b" => en_passant_target += 1,
 			"c" => en_passant_target += 2,
@@ -156,18 +156,17 @@ fn decode_fen(fen_string: &str) -> (Vec<Piece>, PieceColour, (bool,bool,bool,boo
 			"f" => en_passant_target += 5,
 			"g" => en_passant_target += 6,
 			"h" => en_passant_target += 7,
-			_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); }
+			_ => { println!("\x1b[41m--UNEXPECTED VALUE IN FEN STRING--\x1b[0m"); return_tuple.0 = Vec::new(); } // unkown value (letter after 'h')
 		}
-		en_passant_target += (8-number_part as i32)*8+1;
+		en_passant_target += (8-number_part as i32)*8+1; // working out the index value ((8-number part) * 8 + 1) + letter part 
 	}
-	println!("{}", en_passant_target);
 
 	return_tuple.3 = en_passant_target;
 
 	return return_tuple
 }
 
-fn load_board_art(file_path: &str) -> Vec<[String;9]>{ // loads art used when printing board from file
+fn load_board_art(file_path: &str) -> Vec<[String;9]>{ // returns ASCII art of board from file
 	let file_contents = fs::read_to_string(file_path).expect("\x1b[41m--COULD NOT READ ART FILE--\x1b[0m");
 	let split_contents = file_contents.split("\n"); // Read then split art file contents
 	let mut piece_arts: Vec<[String;9]> = Vec::new();
@@ -188,21 +187,21 @@ fn load_board_art(file_path: &str) -> Vec<[String;9]>{ // loads art used when pr
 	piece_arts
 }
 
-fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_rights: (bool,bool,bool,bool), en_passant_move: i32) -> String{ // returns fen string of current boardkkkkll
+fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_rights: (bool,bool,bool,bool), en_passant_move: i32) -> String{ // returns fen string of current board
 	let mut fen_string = String::new();
 
 	// -- BOARD LAYOUT --
 
 	let mut board_layout_str = String::new();
 
-	let mut empty_flag = false;
-	let mut num_empty = 0;
+	let mut empty_flag = false; // flag for number of empty spaces in a row 
+	let mut num_empty = 0; // number of empty spaces in a row
 
 	for rank in 0..8{
 		for file in 0..8{
 			let piece = board[file+rank*8];
 
-			if empty_flag == true && piece.piece_type != PieceType::None{
+			if empty_flag == true && piece.piece_type != PieceType::None{ // add number of empty spaces to fen string when string of empty spaces end
 				board_layout_str.push_str(&num_empty.to_string());
 				empty_flag = false;
 				num_empty = 0;
@@ -258,8 +257,8 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 			}
 		}
 
-		if num_empty != 0{ // adding empty count if whole rank is empty
-			board_layout_str.push_str(&num_empty.to_string());
+		if num_empty != 0{ // adding empty count if whole rank is empty (wont add at top if whole row is empty)
+			board_layout_str.push_str(&num_empty.to_string()); 
 			num_empty = 0;
 			empty_flag = false;
 		}
@@ -298,13 +297,10 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 	}
 
 	if castling_rights_string.len() == 0{ // if no castling is available
-		castling_rights_string.push_str("- ");
-	}
-	else{
-		castling_rights_string.push_str(" ");
+		castling_rights_string.push_str("-");
 	}
 
-	fen_string.push_str(&castling_rights_string);
+	fen_string.push_str(&(castling_rights_string + " "));
 
 	// -- EN PASSANT MOVE --
 
@@ -313,8 +309,8 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 	}
 	else{
 
-		let letter_part = match en_passant_move%8{
-			0 => "a",
+		let letter_part = match en_passant_move%8{ // generate letter part of algebraic notation of en passant target
+			0 => "a", 
 			1 => "b",
 			2 => "c",
 			3 => "d",
@@ -325,7 +321,7 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 			_ => "-",
 		};
 
-		let number_part = (8-(en_passant_move/8)).to_string();
+		let number_part = (8-(en_passant_move/8)).to_string(); // number part of algebraic notation of en passant target
 
 		let algebraic_notation_input = format!("{}{} ", letter_part, number_part);
 
@@ -338,7 +334,7 @@ fn encode_into_fen(board: &Vec<Piece>, colours_turn: PieceColour, castling_right
 
 // ------- BOARD PRINTING -------
 
-fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[String;9]>){ // prints the board fancily
+fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[String;9]>){ // outputs the current board very fancily 
 	let mut lines: Vec<String> = vec![String::new(); 9];
 
 	for rank in 0..=8{
@@ -357,7 +353,7 @@ fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[Str
 		}
 
 		for i in 0..=8{ // placing numbers
-			let line = piece_art[art_index as usize][i].clone().replace("#", " ");
+			let line = piece_art[art_index as usize][i].clone();
 
 			lines[i] = format!("{}{}", lines[i], line);
 		}
@@ -378,7 +374,7 @@ fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[Str
 				}
 
 				for i in 0..=8{ 
-					let line = piece_art[art_index as usize][i].clone().replace("#", " "); //
+					let line = piece_art[art_index as usize][i].clone();
 
 					lines[i] = format!("{}{}", lines[i], line);
 				}
@@ -670,14 +666,14 @@ fn selection_iteration(mut board: Vec<Piece>, mut colours_turn: PieceColour, en_
 		print_board(&board, &Vec::new(), piece_arts); // print current positions
 		piece_moves = select_piece(&mut board, colours_turn, en_passant_move, king_indexs, castling_rights); // select piece
 
-		if piece_moves.len() == 0{
+		if piece_moves.len() == 0{ // if input was 'save'
 			println!("\nFen String:\n'{}'\n", encode_into_fen(&board, colours_turn, castling_rights, en_passant_move));
 			loop {
 				let selection = menu_selection(vec!["Continue","Quit"]);
 
 				match selection{
-					1 => continue 'outer,
-					2 => process::exit(1),
+					1 => continue 'outer, // continue game
+					2 => process::exit(1), // exit program
 					_ => ()
 				}
 			}
@@ -686,7 +682,7 @@ fn selection_iteration(mut board: Vec<Piece>, mut colours_turn: PieceColour, en_
 		print_board(&board, &piece_moves, piece_arts); // print piece moves
 		selected_move = select_move(&piece_moves); // select move
 
-		if selected_move.start != selected_move.end{
+		if selected_move.start != selected_move.end{ // exit loop if input was not 'quit'
 			break;
 		}	
 	}
@@ -709,11 +705,11 @@ fn select_piece(board: &mut Vec<Piece>, colours_turn: PieceColour, en_passant_mo
 		println!("{:?}'s turn!", colours_turn);
 		index = algebraic_notation_input("Enter the piece you would like to select, enter 'save' to get a fen string of the current board layout", false, true);
 
-		if index == -1{
+		if index == -1{ // if input was special ('save' in this count)
 			return Vec::new();
 		}
 
-		if board[index as usize].piece_colour == colours_turn{ // check if piece selected is current person piece
+		if board[index as usize].piece_colour == colours_turn{ // check if piece selected is current colours piece
 			piece_moves = legal_move_gen(board, index, en_passant_move, king_indexs, castling_rights); 
 
 			if piece_moves.len() > 0 { // make sure the piece has atleast one move
@@ -734,7 +730,7 @@ fn select_move(piece_moves: &Vec<Move>) -> Move{ // returns selected move
 	loop{
 		let index = algebraic_notation_input("Enter the move you would like to make (enter 'quit' to return to piece selection)", true, false);
 
-		if index == -1{
+		if index == -1{ // if input was special ('quit' in this case)
 			return Move{ start: -1, end: -1, flag: MoveFlag::None}; // go back to piece input
 		}
 
@@ -823,12 +819,12 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 			match piece_move.start%8{
 				0 => { // queen side
 					match start_piece.piece_colour{
-						PieceColour::White => {
+						PieceColour::White => { // White
 							if piece_move.start/8 == 7{
 								castling_rights.1 = false
 							}
 						},
-						PieceColour::Black => {
+						PieceColour::Black => { // Black
 							if piece_move.start/8 == 0{
 								castling_rights.3 = false
 							}
@@ -838,12 +834,12 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 				},
 				7 => { // king side
 					match start_piece.piece_colour{
-						PieceColour::White => {
+						PieceColour::White => { // White
 							if piece_move.start/8 == 7{
 								castling_rights.0 = false
 							}
 						},
-						PieceColour::Black => {
+						PieceColour::Black => { // Black
 							if piece_move.start/8 == 0{
 								castling_rights.2 = false
 							}
@@ -862,12 +858,12 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 		match piece_move.end%8{
 			0 => { // queen side
 				match capture_piece.piece_colour{
-					PieceColour::White => {
+					PieceColour::White => { // white
 						if piece_move.end/8 == 7{
 							castling_rights.1 = false
 						}
 					}, 
-					PieceColour::Black => {
+					PieceColour::Black => { // Black
 						if piece_move.end/8 == 0{
 							castling_rights.3 = false
 						}
@@ -877,12 +873,12 @@ fn make_move(board: &mut Vec<Piece>, piece_move: Move, en_passant_move: i32, mut
 			},
 			7 => { // king side
 				match capture_piece.piece_colour{
-					PieceColour::White => {
+					PieceColour::White => { // White
 						if piece_move.end/8 == 7{
 							castling_rights.0 = false
 						}
 					},
-					PieceColour::Black => {
+					PieceColour::Black => { // Black
 						if piece_move.end/8 == 0{
 							castling_rights.2 = false
 						}
@@ -947,7 +943,7 @@ fn promotion_type_input(message: &str, can_quit: bool) -> MoveFlag{ // returns m
 		println!("\n{}: ", message); // print message that goes with input 
 		io::stdin().read_line(&mut input).expect("\x1b[41m--FAILED TO READ INPUT LINE--\x1b[0m"); // get input line from console
 
-		if can_quit && input == "quit\n"{ // go back to piece selection
+		if can_quit && input == "quit\n"{ // input was special ('quit' in this case)
 			return MoveFlag::None;
 		}
 
@@ -970,11 +966,11 @@ fn algebraic_notation_input(message: &str, can_quit: bool, can_save: bool) -> i3
 		println!("\n{}: ", message); // Print message that goes with input
 		io::stdin().read_line(&mut input).expect(error_message); // get input line from console
 
-		if can_quit && input == "quit\n"{ // go back to piece selection
+		if can_quit && input == "quit\n"{ // go back to piece selection (input 'quit')
 			return -1;
 		}
 
-		if can_save && input == "save\n"{
+		if can_save && input == "save\n"{ // print out fen string (input 'save')
 			return -1;
 		}
 
@@ -1005,9 +1001,8 @@ fn algebraic_notation_input(message: &str, can_quit: bool, can_save: bool) -> i3
 	index
 }
 
-fn menu_selection(options: Vec<&str>) -> i32{ // returns the number of the selection made (used in a match case statement later :3)
-
-	let num_options = options.len() as i32;
+fn menu_selection(options: Vec<&str>) -> i32{ // returns the number of the selection made
+	let num_options = options.len() as i32; 
 
 	loop {
 		for i in 0..num_options{
@@ -1015,7 +1010,7 @@ fn menu_selection(options: Vec<&str>) -> i32{ // returns the number of the selec
 		}
 
 		print!("\n:");
-		std::io::stdout().flush().unwrap();
+		std::io::stdout().flush().unwrap(); // output the "\n: " from last line ( also allows the input line to be on the same line as the ':' )
 
 		let mut input: String = String::new();
 		io::stdin().read_line(&mut input).expect("\x1b[41;30m--FAILED TO READ INPUT LINE--\x1b[0m");
@@ -1026,51 +1021,50 @@ fn menu_selection(options: Vec<&str>) -> i32{ // returns the number of the selec
 					return n;
 				}
 				else{
-					println!("-- Not a valid selection! --\n\n");
+					println!("-- Not a valid selection! --\n\n"); // not between 1 and number of options
 				}
 			},
-			Err(_) => println!("-- Not a valid selection! --\n\n")
+			Err(_) => println!("-- Not a valid selection! --\n\n") // not an integer
 		}
 	}
 }
 
 
 fn main() {
-	let mut fen_string = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -");
+	let mut fen_string = String::from("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"); // initial chess position in fen form
 
-	loop {
+	loop { // start menu 
 		let selection = menu_selection(vec!["Play", "Load Fen", "Quit"]);
 
 		match selection{
-			1 => break,
-			2 => fen_string = input_fen(),
-			3 => process::exit(1),
-			_ => ()
+			1 => break, // start game 
+			2 => fen_string = input_fen(), // gets input of fen
+			3 => process::exit(1), // exit the program
+			_ => () // invalid input (somethings gone wrong)
 		}
 	}
 
-	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen(&fen_string.trim());
+	let (mut board, mut colours_turn, mut castling_rights, mut en_passant_move) = decode_fen(&fen_string.trim()); // get board layout, colours turn, castling rights and en passant target from fen string
 
-	let piece_art = load_board_art("res/Piece_Art.txt"); // load art from file
+	let piece_art = load_board_art("res/Board_Art.txt"); // load art from file
 
 	let mut king_indexs: (i32, i32) = (-1, -1); // indexs of the kings
-	for index in 0i32..64i32{ // initialising the position of the kings
+	for index in 0i32..64i32{ // looping over every piece to find the kings
 		let piece = board[index as usize];
 
 		if piece.piece_type == PieceType::King{
 			match piece.piece_colour{
-				PieceColour::White => king_indexs.0 = index,
-				PieceColour::Black => king_indexs.1 = index,
-				PieceColour::None => ()
+				PieceColour::White => king_indexs.0 = index, // white king 
+				PieceColour::Black => king_indexs.1 = index, // black king 
+				PieceColour::None => () // somthing has gone wrong if this happens ;-;
 			}
 		}
 	}
 
-
 	loop{
+		if check_for_checkmate(&mut board, en_passant_move, king_indexs, colours_turn, castling_rights){ // check if current player if in checkmate
 
-		if check_for_checkmate(&mut board, en_passant_move, king_indexs, colours_turn, castling_rights){
-			print_board(&board, &Vec::new(), &piece_art);	
+			print_board(&board, &Vec::new(), &piece_art);
 			match colours_turn{
 				PieceColour::White => {
 					println!("\x1b[42;30m-- BLACK HAS WON --\x1b[0m");
@@ -1084,6 +1078,6 @@ fn main() {
 			}
 		}
 
-		(board, en_passant_move, colours_turn, king_indexs, castling_rights) = selection_iteration(board, colours_turn, en_passant_move, &piece_art, king_indexs, castling_rights);
+		(board, en_passant_move, colours_turn, king_indexs, castling_rights) = selection_iteration(board, colours_turn, en_passant_move, &piece_art, king_indexs, castling_rights); // loop through main loop again
 	}
 }
