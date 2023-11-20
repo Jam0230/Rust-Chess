@@ -395,9 +395,9 @@ fn print_board(board: &Vec<Piece>, piece_moves: &Vec<Move>, piece_art: &Vec<[Str
 				for i in 0..=8{
 					let mut line = piece_art[art_index as usize][i].clone();
 
-					match (rank+1)%2 != (file+1)%2{
-						true => line = line.replace("#", " "), // Replace '#' with ' ' if Black Square
-						false => () // Dont change if White Square
+					match (rank+1)%2 == (file+1)%2{
+						true => line = line.replace(" ", "#"), // Replace ' ' with '#' if White Square
+						false => () // Dont change if Black Square
 					}
 
 					match board[index].piece_colour{
