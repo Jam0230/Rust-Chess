@@ -517,7 +517,7 @@ fn legal_move_gen(
     board: &mut Vec<Piece>,
     index: i32,
     en_passant_move: i32,
-    king_indexs: (i32, i32),
+    king_indexes: (i32, i32),
     castling_rights: (bool, bool, bool, bool),
 ) -> Vec<Move> {
     // removes any piece moves that result in check
@@ -530,7 +530,7 @@ fn legal_move_gen(
             &mut board.clone(), /*need the .clone() there to stop it from editing the actual board*/
             sudo_move,
             en_passant_move,
-            king_indexs,
+            king_indexes,
             castling_rights,
         );
         // sudo make move on board
@@ -541,11 +541,11 @@ fn legal_move_gen(
             // set the opponent colour and king index
             PieceColour::White => {
                 opponent_colour = PieceColour::Black;
-                king_index = king_indexs.0
+                king_index = king_indexes.0
             }
             PieceColour::Black => {
                 opponent_colour = PieceColour::White;
-                king_index = king_indexs.1
+                king_index = king_indexes.1
             }
             _ => {
                 println!("\x1b[41m--UNEXPECTED PIECE COLOUR WHEN GENERATING MOVES--\x1b[0m");
@@ -1420,15 +1420,15 @@ fn main() {
 
     let piece_art = load_board_art("res/Board_Art.txt"); // load art from file
 
-    let mut king_indexs: (i32, i32) = (-1, -1); // indexs of the kings
+    let mut king_indexes: (i32, i32) = (-1, -1); // indexs of the kings
     for index in 0i32..64i32 {
         // looping over every piece to find the kings
         let piece = board[index as usize];
 
         if piece.piece_type == PieceType::King {
             match piece.piece_colour {
-                PieceColour::White => king_indexs.0 = index, // white king
-                PieceColour::Black => king_indexs.1 = index, // black king
+                PieceColour::White => king_indexes.0 = index, // white king
+                PieceColour::Black => king_indexes.1 = index, // black king
                 PieceColour::None => (), // somthing has gone wrong if this happens ;-;
             }
         }
@@ -1438,7 +1438,7 @@ fn main() {
         if check_for_checkmate(
             &mut board,
             en_passant_move,
-            king_indexs,
+            king_indexes,
             colours_turn,
             castling_rights,
         ) {
@@ -1456,20 +1456,22 @@ fn main() {
                 }
                 _ => (),
             }
+
+            main();
         }
 
         (
             board,
             en_passant_move,
             colours_turn,
-            king_indexs,
+            king_indexes,
             castling_rights,
         ) = selection_iteration(
             board,
             colours_turn,
             en_passant_move,
             &piece_art,
-            king_indexs,
+            king_indexes,
             castling_rights,
         ); // loop through main loop again
     }
